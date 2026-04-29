@@ -69,7 +69,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
           className="text-sm font-semibold mt-1"
           style={{ color: "var(--color-brand)" }}
         >
-          {listing.price.toLocaleString("ar-SY")} {listing.currency}
+          {listing.price.toLocaleString("en-US")} {listing.currency}
         </p>
         <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
           {listing.city} · {timeAgo(listing.created_at)}

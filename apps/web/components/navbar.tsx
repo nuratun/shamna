@@ -49,7 +49,7 @@ export default function Navbar() {
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
           <Link
-            href="/post"
+            href={`/auth?from=/post`}
             className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
             style={{ background: "var(--color-brand)", fontFamily: "var(--font-arabic)" }}
           >

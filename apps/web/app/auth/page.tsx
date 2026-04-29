@@ -59,7 +59,8 @@ function AuthPage() {
         method: "POST",
         body: JSON.stringify({ phone: `+963${phone}`, code }),
       })
-      localStorage.setItem("access_token", data.access_token)
+      document.cookie = `access_token=${data.access_token}; path=/; max-age=900; SameSite=Lax`
+      localStorage.setItem("access_token", data.access_token) // keep for API calls
       router.push(redirectTo)
     } catch {
       setError("الرمز غير صحيح أو منتهي الصلاحية")

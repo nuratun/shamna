@@ -117,7 +117,7 @@ export default function ListingDetailPage({
           className="text-2xl font-bold mb-3"
           style={{ color: "var(--color-brand)" }}
         >
-          {listing.price.toLocaleString("ar-SY")} {listing.currency}
+          {listing.price.toLocaleString("en-US")} {listing.currency}
         </p>
         <div
           className="flex gap-4 text-xs"
