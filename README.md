@@ -13,6 +13,7 @@
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
 - [Database & Migrations](#database--migrations)
+- [API Reference](#api-reference)
 - [Key Architectural Decisions](#key-architectural-decisions)
 - [Development Status](#development-status)
 - [Roadmap](#roadmap)
@@ -27,7 +28,7 @@ Shamna is a Sahibinden/Craigslist-style classifieds platform built specifically 
 - Post, browse, and search listings across categories
 - Category-specific listing attributes via JSONB
 - Arabic-first design with full RTL layout
-- Image uploads per listing
+- Image uploads per listing (Cloudflare R2 — planned)
 - Mobile app (React Native) planned for phase 2
 - Business/advertiser login planned for a later phase
 
@@ -39,16 +40,16 @@ Shamna is a Sahibinden/Craigslist-style classifieds platform built specifically 
 |---|---|---|
 | **Backend API** | Python + FastAPI | Chosen for long-term ML integration (recommendations, fraud detection, price suggestions) |
 | **ORM** | SQLAlchemy | |
-| **DB Migrations** | Alembic | Run via GitHub Actions |
-| **Web Frontend** | Next.js 14 + Tailwind CSS | App Router, Arabic/RTL from day one |
+| **DB Migrations** | Alembic | Run locally via `uv run alembic upgrade head` or via GitHub Actions |
+| **Web Frontend** | Next.js 15 + Tailwind CSS | App Router, Arabic/RTL from day one |
 | **UI Components** | shadcn/ui | Copy-paste components, no lock-in |
 | **Mobile** | React Native + Expo | Phase 2 |
 | **Primary Database** | PostgreSQL (Supabase) | Free tier during dev, session pooler for IPv4 compatibility |
 | **Search** | Meilisearch | Arabic full-text search — planned |
 | **Cache / Queue** | Redis + BullMQ | Planned |
 | **Object Storage** | Cloudflare R2 | Listing photo storage — planned |
-| **Auth** | Custom JWT + OTP (phone-based) | Short-lived access tokens (15 min) + refresh tokens in httpOnly cookies (30 days) |
-| **Package Manager (API)** | uv | Fast Python package manager, manages virtualenv |
+| **Auth** | Custom JWT + OTP (phone-based) | Access tokens (15 min, localStorage) + refresh tokens in httpOnly cookies (30 days) |
+| **Package Manager (API)** | uv | Fast Python package manager — always use `uv add` never `pip install` |
 | **Font** | IBM Plex Sans Arabic | Arabic-first, clean for marketplace UI |
 
 ---
@@ -58,11 +59,11 @@ Shamna is a Sahibinden/Craigslist-style classifieds platform built specifically 
 | Service | Provider | Purpose | Notes |
 |---|---|---|---|
 | **Web Frontend** | Vercel | Next.js hosting | Auto-deploy from GitHub |
-| **Backend API** | Railway | FastAPI server | Migrate to Hetzner pre-launch |
+| **Backend API** | Railway | FastAPI server | Migrate to Hetzner + Coolify pre-launch |
 | **Database** | Supabase | PostgreSQL | Use Session Pooler URL (IPv4 compatible). Free tier pauses after 1 week inactivity |
-| **DNS / CDN** | Cloudflare | CDN + DNS management | Planned |
+| **DNS / CDN** | Cloudflare | CDN + DNS | Planned |
 | **Image Storage** | Cloudflare R2 | Listing photos | Planned |
-| **Search** | Meilisearch | To be hosted on Hetzner | Planned |
+| **Search** | Meilisearch | Self-hosted on Hetzner | Planned |
 
 ### Pre-launch migration plan
 Before launch, migrate Railway → **Hetzner Cloud + Coolify** for full control and lower cost. Meilisearch and Redis will also be self-hosted there.
@@ -74,44 +75,61 @@ Before launch, migrate Railway → **Hetzner Cloud + Coolify** for full control 
 ```
 shamna/
 ├── apps/
-│   ├── api/                  ← FastAPI backend
-│   │   ├── alembic/          ← DB migrations
-│   │   │   └── versions/
+│   ├── api/                        ← FastAPI backend
+│   │   ├── alembic/                ← DB migrations
+│   │   │   └── versions/           ← migration files
 │   │   ├── app/
-│   │   │   ├── core/         ← config, security (JWT)
-│   │   │   ├── db/           ← SQLAlchemy session + base
-│   │   │   ├── models/       ← SQLAlchemy models
-│   │   │   ├── routers/      ← FastAPI route handlers
-│   │   │   └── main.py       ← FastAPI app entry point
+│   │   │   ├── core/
+│   │   │   │   ├── config.py       ← pydantic-settings (reads .env)
+│   │   │   │   ├── security.py     ← JWT create/decode helpers
+│   │   │   │   └── dependencies.py ← get_current_user / get_optional_user
+│   │   │   ├── db/
+│   │   │   │   ├── base.py         ← SQLAlchemy DeclarativeBase
+│   │   │   │   └── session.py      ← engine, SessionLocal, get_db
+│   │   │   ├── models/
+│   │   │   │   ├── user.py         ← User model
+│   │   │   │   ├── otp.py          ← OTPCode model
+│   │   │   │   └── listing.py      ← Listing model
+│   │   │   ├── routers/
+│   │   │   │   ├── auth.py         ← /auth/request-otp, /auth/verify-otp, /auth/refresh
+│   │   │   │   └── listings.py     ← /listings CRUD + phone reveal
+│   │   │   └── main.py             ← FastAPI app, CORS, router registration
 │   │   ├── alembic.ini
-│   │   ├── Procfile          ← Railway start command
-│   │   └── pyproject.toml    ← Python dependencies (managed by uv)
-│   ├── web/                  ← Next.js frontend
-│   │   ├── app/              ← App Router pages
-│   │   │   ├── auth/         ← OTP login flow
-│   │   │   ├── category/     ← Category listing pages
-│   │   │   ├── listing/      ← Listing detail pages
-│   │   │   └── post/         ← Multi-step post an ad form
-│   │   ├── components/       ← Shared UI components
-│   │   │   ├── post/         ← Post form step components
-│   │   │   ├── navbar.tsx
+│   │   ├── Procfile                ← Railway: uvicorn app.main:app
+│   │   └── pyproject.toml          ← Python dependencies (managed by uv)
+│   ├── web/                        ← Next.js 15 frontend
+│   │   ├── app/
+│   │   │   ├── auth/               ← OTP login flow (2 steps: phone → code)
+│   │   │   ├── category/[slug]/    ← Category listing page + filters
+│   │   │   ├── listing/[id]/       ← Listing detail page (server component)
+│   │   │   ├── post/               ← Multi-step post an ad wizard
+│   │   │   ├── layout.tsx          ← Root layout: IBM Plex Sans Arabic, RTL, Navbar + Footer
+│   │   │   ├── page.tsx            ← Homepage: Hero + CategoryGrid + RecentListings
+│   │   │   └── globals.css         ← CSS vars: brand, surface, border, text colors
+│   │   ├── components/
+│   │   │   ├── post/               ← step-indicator, step-category, step-details,
+│   │   │   │                          step-photos, step-review
+│   │   │   ├── navbar.tsx          ← Logo, search bar, post ad button, login button
 │   │   │   ├── footer.tsx
-│   │   │   ├── hero.tsx
-│   │   │   ├── category-grid.tsx
-│   │   │   ├── listing-card.tsx
-│   │   │   ├── listing-list-card.tsx
-│   │   │   ├── listing-gallery.tsx
-│   │   │   ├── category-filters.tsx
-│   │   │   ├── view-toggle.tsx
-│   │   │   ├── phone-reveal.tsx
+│   │   │   ├── hero.tsx            ← Large search bar with routing
+│   │   │   ├── category-grid.tsx   ← 6-category icon grid
+│   │   │   ├── listing-card.tsx    ← Grid card (homepage + category page)
+│   │   │   ├── listing-list-card.tsx ← Horizontal card for list view
+│   │   │   ├── listing-gallery.tsx ← Image carousel with thumbnails
+│   │   │   ├── category-filters.tsx ← URL-based filters: condition, city, price, sort
+│   │   │   ├── view-toggle.tsx     ← Grid/list toggle
+│   │   │   ├── recent-listings.tsx ← Async server component, fetches /listings
+│   │   │   ├── phone-reveal.tsx    ← Reveal phone button + WhatsApp button
 │   │   │   └── report-button.tsx
 │   │   ├── lib/
-│   │   │   └── api.ts        ← Central apiFetch helper
-│   │   └── middleware.ts     ← Auth route protection
-│   └── mobile/               ← React Native (stub, phase 2)
+│   │   │   └── api.ts              ← apiFetch, getAuthHeaders, getApiBaseUrl
+│   │   ├── types/
+│   │   │   └── listing.ts          ← Listing, Seller, ListingsResponse types
+│   │   └── middleware.ts           ← Protects /post, /profile, /my-listings routes
+│   └── mobile/                     ← React Native stub (phase 2)
 ├── .github/
 │   └── workflows/
-│       └── migrate.yml       ← GitHub Action: runs Alembic migrations
+│       └── migrate.yml             ← Manual trigger: runs alembic upgrade head
 └── README.md
 ```
 
@@ -123,8 +141,8 @@ shamna/
 
 - Node.js 18+
 - Python 3.13+
-- `uv` (Python package manager)
-- Railway CLI (`brew install railway`)
+- `uv` — `brew install uv`
+- Railway CLI — `brew install railway`
 
 ### Web Frontend
 
@@ -142,7 +160,10 @@ cd apps/api
 uv sync                        # install dependencies into .venv
 uv run uvicorn app.main:app --reload
 # runs on http://localhost:8000
+# interactive docs at http://localhost:8000/docs
 ```
+
+> **Important:** Always use `uv run` to execute Python commands. Never call `python`, `alembic`, or `uvicorn` directly — they will resolve to the wrong Python installation.
 
 ---
 
@@ -153,36 +174,46 @@ uv run uvicorn app.main:app --reload
 ```env
 DATABASE_URL=postgresql://postgres.xxxx:PASSWORD@aws-1-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require
 JWT_SECRET=your-generated-secret      # generate with: openssl rand -hex 32
-OTP_DEV_BYPASS=1234                   # dev only — always accepts this code
+OTP_DEV_BYPASS=1234                   # dev only — remove before launch
 ```
 
 ### `apps/web/.env.local`
 
 ```env
 NEXT_PUBLIC_API_URL=https://shamna-production.up.railway.app
+API_URL=https://shamna-production.up.railway.app
 ```
 
-### Railway (FastAPI service environment variables)
+> `NEXT_PUBLIC_API_URL` is used by client components. `API_URL` is used by server components and is not exposed to the browser.
+
+### Railway environment variables (FastAPI service)
 
 ```
 DATABASE_URL    → Supabase session pooler URL
-JWT_SECRET      → same as above
+JWT_SECRET      → same as .env above
 OTP_DEV_BYPASS  → 1234 (remove before launch)
 ```
 
-### GitHub Secrets (for migrations CI)
+### Vercel environment variables
+
+```
+NEXT_PUBLIC_API_URL  → https://shamna-production.up.railway.app
+API_URL              → https://shamna-production.up.railway.app
+```
+
+### GitHub Secrets (for migration CI)
 
 ```
 DATABASE_URL    → Supabase session pooler URL
 ```
 
-> ⚠️ Never commit `.env` or `.env.local` to the repo. Both are in `.gitignore`.
+> ⚠️ Never commit `.env` or `.env.local`. Both are in `.gitignore`.
 
 ---
 
 ## Database & Migrations
 
-Database is hosted on **Supabase PostgreSQL**. Migrations are managed with **Alembic**.
+Hosted on **Supabase PostgreSQL**. Direct connection is IPv6 only — always use the **Session Pooler** URL for local dev and Railway.
 
 ### Running migrations locally
 
@@ -196,37 +227,152 @@ uv run alembic upgrade head
 ```bash
 cd apps/api
 uv run alembic revision -m "describe your change"
-# then fill in upgrade() and downgrade() in the generated file
-# then run: uv run alembic upgrade head
+# fill in upgrade() and downgrade() in the generated file
+uv run alembic upgrade head
 ```
 
 ### CI migrations
 
-Migrations also run automatically via GitHub Actions (`.github/workflows/migrate.yml`). Trigger manually from the **Actions** tab in GitHub when needed.
+Trigger manually from **GitHub → Actions → Run DB Migrations**.
 
 ### Current tables
 
 | Table | Description |
 |---|---|
-| `users` | Registered users (phone-based) |
-| `otp_codes` | OTP codes for phone verification |
-| `listings` | Classifieds listings — planned |
+| `users` | id, phone, name, is_active, created_at |
+| `otp_codes` | phone, code, used, expires_at, created_at |
+| `listings` | Full listing record — see columns below |
+
+### Listings table columns
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `user_id` | UUID | FK → users.id |
+| `title` | String(100) | |
+| `description` | Text | |
+| `price` | Numeric(12,2) | |
+| `currency` | String(3) | "USD" or "SYP" |
+| `category` | String(50) | electronics, cars, real-estate, furniture, clothing, jobs |
+| `condition` | String(10) | "new" or "used" |
+| `city` | String(50) | Arabic city name |
+| `status` | String(10) | "active", "sold", "expired" |
+| `attrs` | JSONB | Category-specific attributes (flexible) |
+| `image_urls` | JSONB | Array of image URL strings |
+| `views` | Integer | Incremented on each detail page visit (skipped for owner) |
+| `expires_at` | DateTime | 30 days from creation |
+| `created_at` | DateTime | |
+| `updated_at` | DateTime | |
+
+---
+
+## API Reference
+
+Base URL: `https://shamna-production.up.railway.app`
+
+Interactive docs: `https://shamna-production.up.railway.app/docs`
+
+### Auth endpoints
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/auth/request-otp` | No | Send OTP to phone number |
+| POST | `/auth/verify-otp` | No | Verify OTP → returns access token + sets refresh cookie |
+| POST | `/auth/refresh` | Cookie | Exchange refresh token for new access token |
+
+**verify-otp response:**
+```json
+{
+  "access_token": "eyJ...",
+  "is_new_user": true,
+  "user": { "id": "...", "phone": "+963...", "name": null }
+}
+```
+
+> Dev OTP bypass: code `1234` always works (controlled by `OTP_DEV_BYPASS` env var)
+
+### Listings endpoints
+
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/listings` | No | List with filters + pagination |
+| POST | `/listings` | Required | Create a listing |
+| GET | `/listings/{id}` | Optional | Get listing detail (increments views) |
+| PATCH | `/listings/{id}/status` | Required (owner only) | Mark as sold |
+| GET | `/listings/{id}/phone` | Required | Reveal seller phone number |
+
+**GET /listings query params:**
+
+| Param | Type | Values |
+|---|---|---|
+| `category` | string | electronics, cars, real-estate, furniture, clothing, jobs |
+| `city` | string | Arabic city name e.g. دمشق |
+| `condition` | string | new, used |
+| `min_price` | float | e.g. 100 |
+| `max_price` | float | e.g. 1000 |
+| `sort` | string | newest, price_asc, price_desc |
+| `page` | int | default 1 |
+| `limit` | int | default 20, max 100 |
+
+**GET /listings response shape:**
+```json
+{
+  "total": 42,
+  "page": 1,
+  "limit": 20,
+  "pages": 3,
+  "results": [ ...listings ]
+}
+```
+
+**Listing object shape:**
+```json
+{
+  "id": "uuid",
+  "title": "آيفون ١٥ برو ماكس",
+  "description": "...",
+  "price": 850.0,
+  "currency": "USD",
+  "category": "electronics",
+  "condition": "new",
+  "city": "دمشق",
+  "status": "active",
+  "attrs": {},
+  "image_urls": [],
+  "views": 12,
+  "created_at": "2026-04-30T07:58:32Z",
+  "expires_at": "2026-05-30T07:58:32Z",
+  "seller": {
+    "id": "uuid",
+    "name": "أحمد",
+    "member_since": "April 2026"
+  }
+}
+```
+
+**Authorization for protected endpoints:**
+```
+Authorization: Bearer <access_token>
+```
+> Grab `access_token` from `localStorage.getItem('access_token')` after login, or use `/docs` UI.
 
 ---
 
 ## Key Architectural Decisions
 
-**Arabic-first:** `lang="ar"` and `dir="rtl"` set on the root HTML element. IBM Plex Sans Arabic as the primary font. All UI copy is in Arabic.
+**Arabic-first:** `lang="ar"` and `dir="rtl"` on root HTML element. IBM Plex Sans Arabic as primary font. All UI copy in Arabic.
 
-**Phone OTP auth:** No email/password. Users authenticate with Syrian phone numbers (+963). JWT access tokens (15 min) + refresh tokens in httpOnly cookies (30 days).
+**Phone OTP auth:** No email/password. Syrian phone numbers (+963). Access token in `localStorage` (client API calls) + short-lived cookie (Next.js middleware route protection). Refresh token in httpOnly cookie.
 
-**JSONB for listing attributes:** Category-specific fields (e.g. car mileage, apartment size) stored in a PostgreSQL JSONB column rather than separate tables per category. Flexible from day one.
+**JSONB for listing attributes:** Category-specific fields (car mileage, apartment rooms, etc.) go in `attrs` JSONB column — no separate table per category. Flexible from day one.
 
-**`uv` for Python deps:** All Python packages managed exclusively through `uv`. Never use `pip install` directly in this project — use `uv add` instead.
+**URL-based filters:** Category page filters stored in URL query params — shareable and bookmarkable. `CategoryFilters` component reads/writes via `useSearchParams` + `router.push`.
 
-**URL-based filters:** Category page filters (city, condition, price, sort) are stored in URL query params, making filtered views shareable and bookmarkable.
+**Server vs client API calls:** Server components use `API_URL` env var (not exposed to browser). Client components use `NEXT_PUBLIC_API_URL`. Both point to same Railway URL — distinction matters for Next.js build process.
 
-**Mock data pattern:** Frontend pages are built with `MOCK_*` constants at the top of each file. Replacing with real API calls is a single swap — `MOCK_LISTINGS` → `await apiFetch('/listings')`.
+**Next.js 15 async params:** `params` in server components is a Promise. Always `const { id } = await params` before use — never access `params.id` directly.
+
+**`uv` for Python deps:** All packages managed through `uv`. Never `pip install` — always `uv add`.
 
 ---
 
@@ -237,26 +383,28 @@ Migrations also run automatically via GitHub Actions (`.github/workflows/migrate
 | Monorepo structure | ✅ Done |
 | FastAPI skeleton + Railway deploy | ✅ Done |
 | Supabase PostgreSQL connected | ✅ Done |
-| Alembic migrations (users, otp_codes) | ✅ Done |
+| Alembic migrations (users, otp_codes, listings) | ✅ Done |
 | OTP auth endpoints | ✅ Done |
 | JWT access + refresh tokens | ✅ Done |
 | Next.js app + Vercel deploy | ✅ Done |
 | Arabic/RTL layout + font | ✅ Done |
-| Navbar + footer shell | ✅ Done |
-| Homepage (hero + categories + listings) | ✅ Done (mock data) |
-| Category page + filters + view toggle | ✅ Done (mock data) |
-| Listing detail page | ✅ Done (mock data) |
-| Post an ad form (multi-step wizard) | ✅ Done (submit not wired) |
+| Navbar + footer | ✅ Done |
+| Homepage — real API data | ✅ Done |
+| Category page + filters + view toggle — real API | ✅ Done |
+| Listing detail page — real API | ✅ Done |
+| Post an ad form (multi-step wizard UI) | ✅ Done |
 | Auth middleware (protected routes) | ✅ Done |
-| Frontend auth flow (OTP UI) | ✅ Done + tested |
-| Listings API endpoints | 🔄 Next |
+| Frontend auth flow (OTP UI) — tested end to end | ✅ Done |
+| Listings API (create, list, get, status, phone reveal) | ✅ Done |
+| Post form wired to API (submit) | 🔄 Next |
 | Image upload (Cloudflare R2) | ⏳ Planned |
-| Wire frontend to real listings API | ⏳ Planned |
 | User profile page | ⏳ Planned |
+| My listings page (owner view, mark as sold) | ⏳ Planned |
 | Meilisearch integration | ⏳ Planned |
 | Redis + BullMQ | ⏳ Planned |
 | React Native mobile app | ⏳ Phase 2 |
 | Image moderation pipeline | ⏳ Pre-launch |
+| Wire real SMS provider (Twilio/Vonage) | ⏳ Pre-launch |
 | Business/advertiser login | ⏳ Later phase |
 
 ---
@@ -264,16 +412,20 @@ Migrations also run automatically via GitHub Actions (`.github/workflows/migrate
 ## Roadmap
 
 ### Phase 1 — Dev / Skeleton (current)
-- [x] Auth flow
-- [ ] Listings CRUD
-- [ ] Image uploads
-- [ ] Search
+- [x] Monorepo + deployment pipeline
+- [x] Auth flow (OTP + JWT)
+- [x] Listings CRUD API
+- [x] Full frontend shell (homepage, category, detail, post form)
+- [ ] Post form submission + image upload
+- [ ] User profile + my listings
+- [ ] Search (Meilisearch)
 
 ### Phase 2 — Pre-launch
 - [ ] Migrate Railway → Hetzner + Coolify
 - [ ] Self-host Meilisearch + Redis
 - [ ] Image moderation pipeline
 - [ ] Mobile app (React Native + Expo)
+- [ ] Remove OTP dev bypass, wire real SMS provider
 
 ### Phase 3 — Launch & Growth
 - [ ] Business/advertiser accounts
