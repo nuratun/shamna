@@ -5,7 +5,7 @@ const STEPS = [
   "المراجعة"
 ]
 
-export default function StepIndicator({ current }: { current: number }) {
+export default function StepIndicator({ steps, current }: { steps: string[], current: number }) {
   return (
     <div
       className="flex items-start mb-8"

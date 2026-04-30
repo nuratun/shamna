@@ -2,16 +2,17 @@
 
 import { useRef } from "react"
 import { X, Plus } from "lucide-react"
+import { PostFormData } from "@/types/post"
 
 const MAX_PHOTOS = 5
 
 export default function StepPhotos({
-  photos,
+  images,
   onChange,
   onNext,
   onBack
 }: {
-  photos: File[]
+  images: File[]
   onChange: (files: File[]) => void
   onNext: () => void
   onBack: () => void
@@ -20,16 +21,16 @@ export default function StepPhotos({
 
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    const merged = [...photos, ...files].slice(0, MAX_PHOTOS)
+    const merged = [...images, ...files].slice(0, MAX_PHOTOS)
     onChange(merged)
     e.target.value = ""
   }
 
   function remove(index: number) {
-    onChange(photos.filter((_, i) => i !== index))
+    onChange(images.filter((_, i) => i !== index))
   }
 
-  const previews = photos.map((f) => URL.createObjectURL(f))
+  const previews = images.map((f) => URL.createObjectURL(f))
 
   return (
     <div style={{ fontFamily: "var(--font-arabic)" }}>
@@ -67,7 +68,7 @@ export default function StepPhotos({
           </div>
         ))}
 
-        {photos.length < MAX_PHOTOS && (
+        {images.length < MAX_PHOTOS && (
           <button
             onClick={() => inputRef.current?.click()}
             className="aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-colors"
@@ -84,7 +85,7 @@ export default function StepPhotos({
 
         {/* Empty slots */}
         {Array.from({
-          length: Math.max(0, MAX_PHOTOS - photos.length - 1),
+          length: Math.max(0, MAX_PHOTOS - images.length - 1),
         }).map((_, i) => (
           <div
             key={`empty-${i}`}
@@ -108,8 +109,8 @@ export default function StepPhotos({
       />
 
       <p className="text-xs mb-5 text-center" style={{ color: "var(--color-text-muted)" }}>
-        {photos.length}/{MAX_PHOTOS} صور مضافة
-        {photos.length === 0 && " · يمكنك المتابعة بدون صور"}
+        {images.length}/{MAX_PHOTOS} صور مضافة
+        {images.length === 0 && " · يمكنك المتابعة بدون صور"}
       </p>
 
       <div className="flex gap-2">

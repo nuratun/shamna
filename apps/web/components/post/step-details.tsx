@@ -1,3 +1,5 @@
+import { PostFormData } from "@/types/post"
+
 const CITIES = [
   "دمشق", 
   "حلب", 
@@ -40,23 +42,23 @@ const inputStyle = {
   color: "var(--color-text-primary)",
   background: "#fff",
   fontFamily: "var(--font-arabic)",
-  outline: "none",
+  outline: "none"
 } as React.CSSProperties
 
 export default function StepDetails({
   value,
   onChange,
   onNext,
-  onBack,
+  onBack
 }: {
-  value: ListingDetails
-  onChange: (v: ListingDetails) => void
+  value: Pick<PostFormData, "title" | "price" | "condition" | "city" | "description">
+  onChange: (patch: Partial<PostFormData>) => void
   onNext: () => void
   onBack: () => void
 }) {
-  const set = (key: keyof ListingDetails) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => onChange({ ...value, [key]: e.target.value })
+  const set = (key: keyof Pick<PostFormData, "title" | "price" | "condition" | "city" | "description">) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+      onChange({ [key]: e.target.value })
 
   const isValid = value.title && value.price && value.condition && value.city && value.description
 
