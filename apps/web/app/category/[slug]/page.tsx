@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import { useParams, useSearchParams } from "next/navigation"
 import { apiFetch } from "@/lib/api"
-import { type Listing, type ListingsResponse } from "@/types/listing"
+import { Listing, type ListingsResponse } from "@/types/listing"
 import CategoryFilters from "@/components/category-filters"
 import ViewToggle from "@/components/view-toggle"
 import ListingCard from "@/components/listing-card"
