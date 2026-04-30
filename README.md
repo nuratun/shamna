@@ -159,7 +159,7 @@ OTP_DEV_BYPASS=1234                   # dev only — always accepts this code
 ### `apps/web/.env.local`
 
 ```env
-NEXT_PUBLIC_API_URL=https://your-railway-app.up.railway.app
+NEXT_PUBLIC_API_URL=https://shamna-production.up.railway.app
 ```
 
 ### Railway (FastAPI service environment variables)

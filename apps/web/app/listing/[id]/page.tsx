@@ -53,16 +53,15 @@ const conditionLabels: Record<string, string> = {
   used: "مستعمل",
 }
 
-export default async function ListingDetailPage({
-  params,
-}: {
-  params: { id: string }
+export default async function ListingDetailPage({ params }: {
+  params: Promise<{ id: string }>
 }) {
+  const { id } = await params
   let listing: Listing
   let similar: Listing[] = []
 
   try {
-    listing = await apiFetch<Listing>(`/listings/${params.id}`)
+    listing = await apiFetch<Listing>(`/listings/${id}`)
   } catch {
     notFound()
   }
@@ -114,7 +113,7 @@ export default async function ListingDetailPage({
           {listing.title}
         </h1>
         <p className="text-2xl font-bold mb-3" style={{ color: "var(--color-brand)" }}>
-          {listing.price.toLocaleString("ar-SY")} {listing.currency}
+          {listing.price.toLocaleString("en-US")} {listing.currency}
         </p>
         <div className="flex gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
           <span>📍 {listing.city}</span>
@@ -151,9 +150,9 @@ export default async function ListingDetailPage({
           </div>
         </div>
         <Suspense>
-          <PhoneReveal listingId={params.id} />
+          <PhoneReveal listingId={id} />
         </Suspense>
-        <ReportButton listingId={params.id} />
+        <ReportButton listingId={id} />
       </Card>
 
       {/* Location */}
