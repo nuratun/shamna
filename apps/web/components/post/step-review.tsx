@@ -48,7 +48,8 @@ export default function StepReview({
         <button
           onClick={onSubmit}
           disabled={isSubmitting}
-          className="px-6 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          className="px-6 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          style={{ background: "var(--color-brand)" }}
         >
           {isSubmitting ? "جاري النشر..." : "نشر الإعلان"}
         </button>
