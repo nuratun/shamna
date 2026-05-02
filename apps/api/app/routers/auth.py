@@ -13,6 +13,14 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+class UpdateProfileRequest(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    bio: str | None = None
+
+class UpdateProfilePicRequest(BaseModel):
+    profile_pic: str  # the R2 public URL
+
 class PhoneRequest(BaseModel):
     phone: str
 
@@ -31,6 +39,43 @@ def get_me(current_user: User = Depends(get_current_user)):
         "user_type": current_user.user_type,
         "created_at": current_user.created_at.isoformat()
     }
+
+@router.get("/me")
+def update_me(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if body.name is not None:
+        current_user.name = body.name
+    if body.email is not None:
+        current_user.email = body.email
+    if body.bio is not None:
+        current_user.bio = body.bio
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "id": str(current_user.id),
+        "phone": current_user.phone,
+        "name": current_user.name,
+        "email": current_user.email,
+        "bio": current_user.bio,
+        "profile_pic": current_user.profile_pic,
+        "user_type": current_user.user_type,
+        "standing": current_user.standing,
+        "warning_reason": current_user.warning_reason,
+        "created_at": current_user.created_at.isoformat()
+    }
+
+@router.put("/me/profile-pic")
+def update_profile_pic(
+    body: UpdateProfilePicRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.profile_pic = body.profile_pic
+    db.commit()
+    return {"profile_pic": current_user.profile_pic}
 
 @router.post("/request-otp")
 def request_otp(body: PhoneRequest, db: Session = Depends(get_db)):
