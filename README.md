@@ -17,6 +17,7 @@
 - [Key Architectural Decisions](#key-architectural-decisions)
 - [Development Status](#development-status)
 - [Roadmap](#roadmap)
+- [Next Session](#next-session)
 
 ---
 
@@ -28,7 +29,7 @@ Shamna is a Sahibinden/Craigslist-style classifieds platform built specifically 
 - Post, browse, and search listings across categories
 - Category-specific listing attributes via JSONB
 - Arabic-first design with full RTL layout
-- Image uploads per listing (Cloudflare R2 — live)
+- Image uploads per listing and profile photos (Cloudflare R2 — live)
 - Mobile app (React Native) planned for phase 2
 - Business/advertiser login planned for a later phase
 
@@ -39,7 +40,7 @@ Shamna is a Sahibinden/Craigslist-style classifieds platform built specifically 
 | Layer | Choice | Notes |
 |---|---|---|
 | **Backend API** | Python + FastAPI | Chosen for long-term ML integration (recommendations, fraud detection, price suggestions) |
-| **ORM** | SQLAlchemy | |
+| **ORM** | SQLAlchemy 2.x | Using `Mapped` + `mapped_column` style — required for Pylance compatibility |
 | **DB Migrations** | Alembic | Run locally via `uv run alembic upgrade head` or via GitHub Actions |
 | **Web Frontend** | Next.js 15 + Tailwind CSS | App Router, Arabic/RTL from day one |
 | **UI Components** | shadcn/ui | Copy-paste components, no lock-in |
@@ -61,12 +62,18 @@ Shamna is a Sahibinden/Craigslist-style classifieds platform built specifically 
 | **Web Frontend** | Vercel | Next.js hosting | Auto-deploy from GitHub |
 | **Backend API** | Railway | FastAPI server | Migrate to Hetzner + Coolify pre-launch |
 | **Database** | Supabase | PostgreSQL | Use Session Pooler URL (IPv4 compatible). Free tier pauses after 1 week inactivity |
-| **DNS / CDN** | Cloudflare | CDN + DNS | Planned |
-| **Image Storage** | Cloudflare R2 | Listing photos | Live — bucket: `shamna-listings` |
+| **DNS / CDN** | Cloudflare | CDN + DNS | Custom domain setup in progress |
+| **Image Storage** | Cloudflare R2 | Listing photos + profile pics | Live — bucket: `shamna-listings` |
 | **Search** | Meilisearch | Self-hosted on Hetzner | Planned |
 
 ### Pre-launch migration plan
 Before launch, migrate Railway → **Hetzner Cloud + Coolify** for full control and lower cost. Meilisearch and Redis will also be self-hosted there.
+
+### ⚠️ Known Infrastructure Issue — Cross-Domain Cookies
+The frontend (Vercel) and backend (Railway) are on different domains. This causes `samesite` cookie issues that break middleware-level route protection and silent token refresh in local dev and on preview URLs. **This will be fully resolved once a custom domain is wired up** (e.g. frontend on `shamna.com`, API on `api.shamna.com` — same-site, `samesite="lax"` works perfectly). Until then:
+- Auth context (`AuthContext`) works correctly — user stays logged in across navigation
+- Middleware route protection (`/post`, `/profile`, `/my-listings`) redirects even logged-in users on cross-domain deployments
+- Workaround in place: a non-httpOnly `session=1` cookie set alongside the refresh token, readable by middleware with `samesite="lax"`
 
 ---
 
@@ -88,13 +95,13 @@ shamna/
 │   │   │   │   ├── base.py         ← SQLAlchemy DeclarativeBase
 │   │   │   │   └── session.py      ← engine, SessionLocal, get_db
 │   │   │   ├── models/
-│   │   │   │   ├── user.py         ← User model
+│   │   │   │   ├── user.py         ← User model (Mapped style)
 │   │   │   │   ├── otp.py          ← OTPCode model
 │   │   │   │   └── listing.py      ← Listing model
 │   │   │   ├── routers/
-│   │   │   │   ├── auth.py         ← /auth/request-otp, /auth/verify-otp, /auth/refresh
+│   │   │   │   ├── auth.py         ← /auth/* endpoints including /auth/me (GET + PUT)
 │   │   │   │   ├── listings.py     ← /listings CRUD + phone reveal
-│   │   │   │   └── uploads.py      ← /uploads/presign — generates R2 presigned PUT URLs
+│   │   │   │   └── uploads.py      ← /uploads/presign + /uploads/presign-profile
 │   │   │   └── main.py             ← FastAPI app, CORS, router registration
 │   │   ├── alembic.ini
 │   │   ├── Procfile                ← Railway: uvicorn app.main:app
@@ -106,13 +113,15 @@ shamna/
 │   │   │   ├── listing/[id]/       ← Listing detail page (server component)
 │   │   │   ├── post/               ← Multi-step post an ad wizard
 │   │   │   │   └── page.tsx        ← Owns all form state, handles submit to /listings
-│   │   │   ├── layout.tsx          ← Root layout: IBM Plex Sans Arabic, RTL, Navbar + Footer
+│   │   │   ├── profile/            ← User profile page (inline editable fields)
+│   │   │   │   └── page.tsx        ← Name, email, bio, profile pic, standing badge
+│   │   │   ├── layout.tsx          ← Root layout: IBM Plex Sans Arabic, RTL, AuthProvider, Navbar + Footer
 │   │   │   ├── page.tsx            ← Homepage: Hero + CategoryGrid + RecentListings
 │   │   │   └── globals.css         ← CSS vars: brand, surface, border, text colors
 │   │   ├── components/
 │   │   │   ├── post/               ← step-indicator, step-category, step-details,
 │   │   │   │                          step-photos, step-review
-│   │   │   ├── navbar.tsx          ← Logo, search bar, post ad button, login button
+│   │   │   ├── navbar.tsx          ← Auth-aware: shows user dropdown or login button
 │   │   │   ├── footer.tsx
 │   │   │   ├── hero.tsx            ← Large search bar with routing
 │   │   │   ├── category-grid.tsx   ← 6-category icon grid
@@ -124,6 +133,8 @@ shamna/
 │   │   │   ├── recent-listings.tsx ← Async server component, fetches /listings
 │   │   │   ├── phone-reveal.tsx    ← Reveal phone button + WhatsApp button
 │   │   │   └── report-button.tsx
+│   │   ├── contexts/
+│   │   │   └── auth-context.tsx    ← AuthProvider, useAuth(), AuthUser type
 │   │   ├── lib/
 │   │   │   └── api.ts              ← apiFetch, getAuthHeaders, getApiBaseUrl
 │   │   ├── types/
@@ -179,6 +190,7 @@ uv run uvicorn app.main:app --reload
 DATABASE_URL=postgresql://postgres.xxxx:PASSWORD@aws-1-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require
 JWT_SECRET=your-generated-secret      # generate with: openssl rand -hex 32
 OTP_DEV_BYPASS=1234                   # dev only — remove before launch
+ENVIRONMENT=development               # set to "production" in Railway
 
 # Cloudflare R2
 R2_ACCOUNT_ID=your_account_id
@@ -204,6 +216,7 @@ R2_PUBLIC_URL=https://media.shamna.com
 DATABASE_URL         → Supabase session pooler URL
 JWT_SECRET           → same as .env above
 OTP_DEV_BYPASS       → 1234 (remove before launch)
+ENVIRONMENT          → production
 R2_ACCOUNT_ID        → Cloudflare account ID
 R2_ACCESS_KEY_ID     → R2 API token access key
 R2_SECRET_ACCESS_KEY → R2 API token secret
@@ -257,9 +270,25 @@ Trigger manually from **GitHub → Actions → Run DB Migrations**.
 
 | Table | Description |
 |---|---|
-| `users` | id, phone, name, is_active, created_at |
+| `users` | id, phone, name, email, bio, profile_pic, user_type, standing, warning_reason, is_active, created_at |
 | `otp_codes` | phone, code, used, expires_at, created_at |
 | `listings` | Full listing record — see columns below |
+
+### Users table columns
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | Primary key |
+| `phone` | String | Unique, indexed |
+| `name` | String | Nullable |
+| `email` | String | Nullable |
+| `bio` | String | Nullable — short user bio |
+| `profile_pic` | String | Nullable — R2 public URL (`profiles/{user_id}.ext`) |
+| `user_type` | String | `"regular"` (business accounts planned) |
+| `standing` | String | `"good"` \| `"warned"` \| `"suspended"` — default `"good"` |
+| `warning_reason` | String | Nullable — populated when standing is warned/suspended |
+| `is_active` | Boolean | Default true |
+| `created_at` | DateTime | |
 
 ### Listings table columns
 
@@ -282,6 +311,13 @@ Trigger manually from **GitHub → Actions → Run DB Migrations**.
 | `created_at` | DateTime | |
 | `updated_at` | DateTime | |
 
+### Migration history
+
+| Revision | Description |
+|---|---|
+| `8a5d4dc3c4c1` | Initial — users, otp_codes, listings tables |
+| `1.2_user_profile_fields` | Add bio, standing, warning_reason to users |
+
 ---
 
 ## API Reference
@@ -297,14 +333,33 @@ Interactive docs: `https://shamna-production.up.railway.app/docs`
 | POST | `/auth/request-otp` | No | Send OTP to phone number |
 | POST | `/auth/verify-otp` | No | Verify OTP → returns access token + sets refresh cookie |
 | POST | `/auth/refresh` | Cookie | Exchange refresh token for new access token |
+| GET | `/auth/me` | Required | Get current user profile |
+| PUT | `/auth/me` | Required | Update name, email, bio |
+| PUT | `/auth/me/profile-pic` | Required | Save R2 profile pic URL on user record |
 
 **verify-otp response:**
 ```json
 {
   "access_token": "eyJ...",
-  "is_new_user": true,
-  "user": { "id": "...", "phone": "+963...", "name": null }
+  "token_type": "bearer",
+  "user": {
+    "id": "uuid",
+    "phone": "+963...",
+    "name": null,
+    "email": null,
+    "bio": null,
+    "profile_pic": null,
+    "user_type": "regular",
+    "standing": "good",
+    "warning_reason": null,
+    "created_at": "2026-05-01T..."
+  }
 }
+```
+
+**PUT /auth/me request:**
+```json
+{ "name": "أحمد", "email": "ahmed@example.com", "bio": "بائع موثوق" }
 ```
 
 > Dev OTP bypass: code `1234` always works (controlled by `OTP_DEV_BYPASS` env var)
@@ -331,17 +386,6 @@ Interactive docs: `https://shamna-production.up.railway.app/docs`
 | `sort` | string | newest, price_asc, price_desc |
 | `page` | int | default 1 |
 | `limit` | int | default 20, max 100 |
-
-**GET /listings response shape:**
-```json
-{
-  "total": 42,
-  "page": 1,
-  "limit": 20,
-  "pages": 3,
-  "results": [ ...listings ]
-}
-```
 
 **Listing object shape:**
 ```json
@@ -372,7 +416,8 @@ Interactive docs: `https://shamna-production.up.railway.app/docs`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/uploads/presign` | Required | Get presigned R2 PUT URLs for direct browser upload |
+| POST | `/uploads/presign` | Required | Get presigned R2 PUT URLs for listing images (max 5) |
+| POST | `/uploads/presign-profile` | Required | Get presigned R2 PUT URL for profile picture |
 
 **POST /uploads/presign request:**
 ```json
@@ -382,23 +427,25 @@ Interactive docs: `https://shamna-production.up.railway.app/docs`
 ]
 ```
 
-**POST /uploads/presign response:**
+**POST /uploads/presign-profile request:**
 ```json
-[
-  {
-    "upload_url": "https://...r2.cloudflarestorage.com/...?X-Amz-Signature=...",
-    "public_url": "https://media.shamna.com/listings/user-id/uuid.jpg"
-  }
-]
+{ "content_type": "image/jpeg" }
 ```
 
-> Upload flow: frontend calls `/uploads/presign` → PUTs each file directly to R2 using `upload_url` → stores `public_url` strings in `image_urls` on listing create. Max 5 images. Allowed types: jpeg, png, webp.
+**POST /uploads/presign-profile response:**
+```json
+{
+  "upload_url": "https://...r2.cloudflarestorage.com/...?X-Amz-Signature=...",
+  "public_url": "https://media.shamna.com/profiles/user-id.jpg"
+}
+```
+
+> Listing images keyed as `listings/{user_id}/{uuid}.ext`. Profile pics keyed as `profiles/{user_id}.ext` — re-uploads overwrite the previous pic automatically.
 
 **Authorization for protected endpoints:**
 ```
 Authorization: Bearer <access_token>
 ```
-> Grab `access_token` from `localStorage.getItem('access_token')` after login, or use `/docs` UI.
 
 ---
 
@@ -406,23 +453,33 @@ Authorization: Bearer <access_token>
 
 **Arabic-first:** `lang="ar"` and `dir="rtl"` on root HTML element. IBM Plex Sans Arabic as primary font. All UI copy in Arabic.
 
-**Phone OTP auth:** No email/password. Syrian phone numbers (+963). Access token in `localStorage` (client API calls) + short-lived cookie (Next.js middleware route protection). Refresh token in httpOnly cookie.
+**Phone OTP auth:** No email/password. Syrian phone numbers (+963). Access token in `localStorage` (client API calls) + `session=1` non-httpOnly cookie (Next.js middleware route protection). Refresh token in httpOnly cookie. Post-OTP redirect uses `window.location.href` (not `router.push`) to force a full page load so middleware re-evaluates with the fresh cookie.
+
+**Cookie strategy — two cookies on login:**
+- `refresh_token` — httpOnly, secure in production, `samesite="none"` in production / `"lax"` in dev. Used by `/auth/refresh` to silently renew access tokens.
+- `session` — non-httpOnly, `samesite="lax"`, value `"1"`. Presence signal only — no sensitive data. Readable by Next.js middleware to gate protected routes.
+
+**SQLAlchemy 2.x `Mapped` style:** User model uses `Mapped[type]` + `mapped_column()` annotations instead of the legacy `Column()` style. This is required for Pylance to correctly type-check attribute assignments (e.g. `user.name = "Ahmed"` without errors).
+
+**`ENVIRONMENT` setting:** `config.py` exposes `ENVIRONMENT: str = "development"`. Cookie `secure` flag and `samesite` value are conditioned on this — `secure=False` and `samesite="lax"` in dev, `secure=True` and `samesite="none"` in production. Set `ENVIRONMENT=production` in Railway env vars.
 
 **JSONB for listing attributes:** Category-specific fields (car mileage, apartment rooms, etc.) go in `attrs` JSONB column — no separate table per category. Flexible from day one.
 
 **URL-based filters:** Category page filters stored in URL query params — shareable and bookmarkable. `CategoryFilters` component reads/writes via `useSearchParams` + `router.push`.
 
-**R2 image upload — presigned URL pattern:** Frontend requests presigned PUT URLs from our API (`/uploads/presign`). The API generates them using `boto3` (S3-compatible) and returns them alongside the final public URLs. The browser PUTs files directly to R2 — the API server never buffers image bytes. Files are keyed as `listings/{user_id}/{uuid}.ext`. R2 bucket CORS policy allows PUT/GET from `localhost:3000` and the production domain, with `content-type` in allowed headers (required because presigned URLs are signed with content-type).
+**R2 image upload — presigned URL pattern:** Frontend requests presigned PUT URLs from our API. The browser PUTs files directly to R2 — the API server never buffers image bytes. Same pattern for both listing images and profile photos.
 
-**Server vs client API calls:** Server components use `API_URL` env var (not exposed to browser). Client components use `NEXT_PUBLIC_API_URL`. Both point to same Railway URL — distinction matters for Next.js build process.
+**`AuthContext` hydration strategy:** On every app mount, `hydrate()` runs once. It checks localStorage for a stored access token, validates it via `GET /auth/me`, and falls back to a silent cookie refresh if expired. Failed refreshes during hydration call `tryRefreshSilently()` (not `refreshToken()`) — this returns null on failure without calling `logout()`, preventing spurious logouts on 404 pages or cold loads.
 
-**Next.js 15 async params:** `params` in server components is a Promise. Always `const { id } = await params` before use — never access `params.id` directly.
+**Server vs client API calls:** Server components use `API_URL` env var (not exposed to browser). Client components use `NEXT_PUBLIC_API_URL`. Both point to same Railway URL.
 
-**CSS variables for design tokens:** Custom colors (`--color-brand`, `--color-border`, `--color-surface`, `--color-text-primary`, `--color-text-muted`) are CSS variables defined in `globals.css`. Always use inline `style={{ ... }}` with these variables in components — never Tailwind utility classes like `bg-brand` or `border-border` which Tailwind won't generate for custom vars.
+**Next.js 15 async params:** `params` in server components is a Promise. Always `const { id } = await params` before use.
+
+**CSS variables for design tokens:** Custom colors (`--color-brand`, `--color-border`, `--color-surface`, `--color-text-primary`, `--color-text-muted`) defined in `globals.css`. Always use inline `style={{ ... }}` — never Tailwind utility classes like `bg-brand` which won't be generated for custom vars.
 
 **`uv` for Python deps:** All packages managed through `uv`. Never `pip install` — always `uv add`.
 
-**Pydantic v2 settings:** Use `model_config = SettingsConfigDict(env_file=".env")` in `Settings` class. Do NOT use the old inner `class Config:` pattern — Pydantic v2 will throw `config-both` error if both are present.
+**Pydantic v2 settings:** Use `model_config = SettingsConfigDict(env_file=".env")`. Do NOT use the old inner `class Config:` pattern.
 
 ---
 
@@ -447,10 +504,25 @@ Authorization: Bearer <access_token>
 | Frontend auth flow (OTP UI) — tested end to end | ✅ Done |
 | Listings API (create, list, get, status, phone reveal) | ✅ Done |
 | Post form wired to API (submit) | ✅ Done |
-| Image upload (Cloudflare R2) | ✅ Done |
-| Auth persistence (token survives refresh, AuthContext) | 🔄 Next |
-| User profile page | ⏳ Planned |
+| Image upload — listings (Cloudflare R2) | ✅ Done |
+| AuthContext (user state, login, logout, hydration) | ✅ Done |
+| Silent token refresh (tryRefreshSilently) | ✅ Done |
+| Navbar auth-aware (user dropdown, post ad button) | ✅ Done |
+| GET /auth/me endpoint | ✅ Done |
+| PUT /auth/me endpoint (name, email, bio) | ✅ Done |
+| PUT /auth/me/profile-pic endpoint | ✅ Done |
+| POST /uploads/presign-profile endpoint | ✅ Done |
+| User model expanded (bio, standing, warning_reason) | ✅ Done |
+| SQLAlchemy Mapped style migration | ✅ Done |
+| User profile page (inline edit, photo upload, standing badge) | ✅ Done |
+| Auth persistence across page refresh | ✅ Done (context works; middleware blocked by cross-domain cookies — resolves with custom domain) |
+| Custom domain (Vercel + Railway on same domain) | 🔄 In Progress — needed to fully fix middleware cookie auth |
+| Profile page fully functional end-to-end | 🔄 Blocked by cross-domain cookie issue — works once domain is wired |
 | My listings page (owner view, mark as sold) | ⏳ Planned |
+| Visual layout polish | ⏳ Planned (next session) |
+| Saved/starred listings (users + listings join table) | ⏳ Planned — Phase 1 Profile Phase 2 |
+| Ratings system | ⏳ Planned — Phase 1 Profile Phase 2 |
+| Notifications | ⏳ Planned — Phase 1 Profile Phase 2 |
 | Meilisearch integration | ⏳ Planned |
 | Redis + BullMQ | ⏳ Planned |
 | React Native mobile app | ⏳ Phase 2 |
@@ -468,8 +540,13 @@ Authorization: Bearer <access_token>
 - [x] Listings CRUD API
 - [x] Full frontend shell (homepage, category, detail, post form)
 - [x] Post form submission + image upload (R2)
-- [ ] Auth persistence (AuthContext + token refresh)
-- [ ] User profile + my listings
+- [x] AuthContext + silent token refresh
+- [x] Auth-aware navbar with user dropdown
+- [x] User profile page (inline editing, photo upload, account standing)
+- [ ] Custom domain → fully unblocks middleware auth + profile page API calls
+- [ ] My listings page
+- [ ] Visual layout polish
+- [ ] Profile page Phase 2 (saved listings, ratings, notifications)
 - [ ] Search (Meilisearch)
 
 ### Phase 2 — Pre-launch
@@ -486,25 +563,32 @@ Authorization: Bearer <access_token>
 
 ---
 
-## Next Session: Auth Persistence
+## Next Session
 
-The immediate next task is building proper auth persistence. Currently the session is lost on every page refresh.
+### Immediate priority: Custom domain setup
+Wire a custom domain so both Vercel and Railway sit under the same root domain (e.g. `shamna.com` and `api.shamna.com`). This resolves the cross-domain cookie issue permanently — no more `samesite="none"`, no more middleware blind spots, profile page API calls will work end to end.
 
-**What needs to be built:**
+**What to do:**
+1. Point your domain's DNS to Cloudflare
+2. Add `shamna.com` (or equivalent) to Vercel — Vercel will give you a CNAME/A record to add in Cloudflare
+3. Add `api.shamna.com` as a custom domain in Railway — Railway will give you a CNAME to add in Cloudflare
+4. Update `NEXT_PUBLIC_API_URL` and `API_URL` on Vercel to `https://api.shamna.com`
+5. Update CORS `allow_origins` in FastAPI `main.py` to include `https://shamna.com`
+6. Update R2 bucket CORS to allow the new domain
+7. Change cookie settings: `samesite="lax"` in all environments (same-site now), `secure=True` in production only
+8. Remove the `session=1` workaround cookie — no longer needed
 
-1. **`AuthContext`** (`apps/web/contexts/auth-context.tsx`) — React context that wraps the app, holds `user` and `accessToken` state, reads from `localStorage` on mount, exposes `login()`, `logout()`, and `refreshToken()` methods.
+### After domain: Visual layout polish
+The next development session will focus on UI/UX improvements across the app. Areas to review:
+- Homepage hero section
+- Listing card design (grid + list views)
+- Category page layout
+- Listing detail page
+- Profile page polish
+- Mobile responsiveness across all pages
 
-2. **Silent token refresh** — When the 15-min access token expires, automatically call `POST /auth/refresh` using the httpOnly refresh token cookie to get a new access token, without logging the user out.
-
-3. **`useAuth()` hook** — Simple hook that consumes `AuthContext`. Used by navbar (show login vs profile), post form (get token for API calls), and any protected component.
-
-4. **Navbar update** — Currently always shows the login button. Should show the user's name/avatar and a dropdown (profile, my listings, logout) when authenticated.
-
-5. **Post form update** — Currently reads token directly from `localStorage`. Should use `useAuth()` instead.
-
-**Key files to create/modify:**
-- Create: `apps/web/contexts/auth-context.tsx`
-- Modify: `apps/web/app/layout.tsx` — wrap with `AuthProvider`
-- Modify: `apps/web/components/navbar.tsx` — consume `useAuth()`
-- Modify: `apps/web/app/post/page.tsx` — use `useAuth()` instead of direct localStorage
-- Modify: `apps/web/app/auth/` — call `login()` from context on OTP success
+### Profile page Phase 2 (future session)
+Three features deferred from the initial profile page build — each needs its own migration + endpoints + UI:
+- **Saved/starred listings** — `user_saved_listings` join table, save/unsave endpoint, saved tab on profile
+- **Ratings** — `ratings` table, post-transaction review flow, aggregate score on profile
+- **Notifications** — `notifications` table, unread count in navbar, notification list on profile

@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Search, PlusCircle, User } from "lucide-react"
+import { 
+  Search, 
+  PlusCircle, 
+  User, 
+  Bell, 
+  Heart, 
+  ClipboardList 
+} from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function Navbar() {
@@ -28,12 +35,10 @@ export default function Navbar() {
   }
 
   return (
-    <header
-      style={{ borderBottom: "1px solid var(--color-border)", background: "#fff" }}
+    <header style={{ borderBottom: "1px solid var(--color-border)", background: "#fff" }}
       className="sticky top-0 z-50"
     >
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
-
+      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4 justify-center place-items-center">
         {/* Logo */}
         <Link
           href="/"
@@ -64,51 +69,48 @@ export default function Navbar() {
           />
         </div>
 
-        {/* Actions — always a flex row, gap between items */}
+        {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
 
           {isLoading ? (
             <div style={{ width: 160, height: 36, borderRadius: 8, background: "var(--color-surface)" }} />
+
           ) : user ? (
+            /* ── LOGGED IN: icon row ── */
             <>
-              {/* Post an Ad — only shown when logged in */}
-              <Link
-                href="/post"
-                className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-                style={{ background: "var(--color-brand)", fontFamily: "var(--font-arabic)" }}
-              >
-                <PlusCircle size={16} />
-                <span>أضف إعلان</span>
+              {/* Notifications */}
+              <Link href="/notifications" style={iconBtnStyle} title="الإشعارات">
+                <Bell size={18} />
               </Link>
 
-              {/* User dropdown */}
+              {/* Saved / Favourites */}
+              <Link href="/saved" style={iconBtnStyle} title="المفضلة">
+                <Heart size={18} />
+              </Link>
+
+              {/* My listings */}
+              <Link href="/my-listings" style={iconBtnStyle} title="إعلاناتي">
+                <ClipboardList size={18} />
+              </Link>
+
+              {/* Avatar + dropdown */}
               <div style={{ position: "relative" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); setDropdownOpen((o) => !o) }}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "1px solid var(--color-border)",
-                    background: "transparent",
-                    cursor: "pointer",
-                    color: "var(--color-text-primary)",
+                    ...iconBtnStyle,
+                    background: "var(--color-brand)",
+                    borderColor: "var(--color-brand)",
+                    color: "#fff",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    overflow: "hidden"
                   }}
+                  title="حسابي"
                 >
-                  <div style={{
-                    width: 28, height: 28, borderRadius: "50%",
-                    background: "var(--color-brand)", color: "#fff",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 13, fontWeight: 600, overflow: "hidden", flexShrink: 0,
-                  }}>
-                    {user.profile_pic
-                      ? <img src={user.profile_pic} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
-                      : (user.name?.[0] ?? "؟")}
-                  </div>
-                  <span style={{ fontSize: 14 }}>{user.name ?? user.phone}</span>
-                  <span style={{ fontSize: 10 }}>▾</span>
+                  {user.profile_pic
+                    ? <img src={user.profile_pic} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : (user.name?.[0] ?? "؟")}
                 </button>
 
                 {dropdownOpen && (
@@ -122,7 +124,7 @@ export default function Navbar() {
                     borderRadius: 10,
                     boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
                     zIndex: 100,
-                    overflow: "hidden",
+                    overflow: "hidden"
                   }}>
                     <Link href="/profile" onClick={() => setDropdownOpen(false)}
                       style={{ display: "block", padding: "10px 16px", fontSize: 14, color: "var(--color-text-primary)", textDecoration: "none" }}>
@@ -140,9 +142,10 @@ export default function Navbar() {
                 )}
               </div>
             </>
+
           ) : (
+            /* ── LOGGED OUT: two buttons ── */
             <>
-              {/* Post an Ad — sends guest to login first */}
               <Link
                 href={`/auth?from=/post`}
                 className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
@@ -152,14 +155,13 @@ export default function Navbar() {
                 <span>أضف إعلان</span>
               </Link>
 
-              {/* Login button */}
               <Link
                 href={`/auth?from=${pathname}`}
                 className="flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium transition-colors"
                 style={{
                   border: "1px solid var(--color-border)",
                   color: "var(--color-text-primary)",
-                  fontFamily: "var(--font-arabic)"
+                  fontFamily: "var(--font-arabic)",
                 }}
               >
                 <User size={16} />
@@ -171,4 +173,20 @@ export default function Navbar() {
       </div>
     </header>
   )
+}
+
+/* Shared style for the icon circle buttons */
+const iconBtnStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 36,
+  height: 36,
+  borderRadius: "50%",
+  border: "1px solid var(--color-border)",
+  background: "transparent",
+  color: "var(--color-text-primary)",
+  cursor: "pointer",
+  textDecoration: "none",
+  flexShrink: 0
 }

@@ -2,10 +2,12 @@ import Hero from "@/components/hero"
 import CategoryGrid from "@/components/category-grid"
 import RecentListings from "@/components/recent-listings"
 
+import { HERO_CATEGORIES } from "@/lib/utils"
+
 export default function Home() {
   return (
     <>
-      <Hero />
+      <Hero categories={HERO_CATEGORIES} />
       <div
         className="max-w-6xl mx-auto"
         style={{ borderBottom: "1px solid var(--color-border)" }}
