@@ -1,20 +1,36 @@
 from sqlalchemy import Column, String, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 import uuid
 from app.db.base import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    phone = Column(String, unique=True, nullable=False, index=True)
-    name = Column(String, nullable=True)
-    email = Column(String, nullable=True)
-    profile_pic = Column(String, nullable=True)
-    bio = Column(String, nullable=True)
-    standing = Column(String, nullable=False, default="good")  # good | warned | suspended
-    warning_reason = Column(String, nullable=True)
-    user_type = Column(String, default="regular")
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    phone: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    bio: Mapped[str | None] = mapped_column(String, nullable=True)
+    profile_pic: Mapped[str | None] = mapped_column(String, nullable=True)
+    user_type: Mapped[str] = mapped_column(String, default="regular")
+    standing: Mapped[str] = mapped_column(String, default="good")
+    warning_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # phone = Column(String, unique=True, nullable=False, index=True)
+    # name = Column(String, nullable=True)
+    # email = Column(String, nullable=True)
+    # profile_pic = Column(String, nullable=True)
+    # bio = Column(String, nullable=True)
+    # standing = Column(String, nullable=False, default="good")  # good | warned | suspended
+    # warning_reason = Column(String, nullable=True)
+    # user_type = Column(String, default="regular")
+    # is_active = Column(Boolean, default=True)
+    # created_at = Column(DateTime(timezone=True), server_default=func.now())

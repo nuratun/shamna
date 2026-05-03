@@ -43,7 +43,7 @@ def get_me(current_user: User = Depends(get_current_user)):
         "created_at": current_user.created_at.isoformat()
     }
 
-@router.get("/me")
+@router.put("/me")
 def update_me(
     body: UpdateProfileRequest,
     current_user: User = Depends(get_current_user),

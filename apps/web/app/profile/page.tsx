@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
+import { useAuth, AuthUser } from "@/contexts/auth-context"
 import { apiFetch } from "@/lib/api"
 import { Camera, Check, X, AlertTriangle, ShieldCheck, ShieldOff } from "lucide-react"
 import Link from "next/link"
@@ -145,13 +145,15 @@ export default function ProfilePage() {
   // ── Save profile fields ──────────────────────────────────────────────────
   async function saveField(field: "name" | "email" | "bio", value: string) {
     const token = await getToken()
-    const updated = await apiFetch<typeof user>("/auth/me", {
+    if (!token) return
+
+    const updated = await apiFetch<AuthUser>("/auth/me", {
       method: "PUT",
       headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify({ [field]: value }),
     })
-    // Refresh the AuthContext user so navbar updates too
-    login(accessToken!, updated as any)
+    // Update context so navbar reflects changes immediately
+    login(token, updated)
   }
 
   // ── Profile photo upload ─────────────────────────────────────────────────
@@ -163,6 +165,7 @@ export default function ProfilePage() {
 
     try {
       const token = await getToken()
+      if (!token) throw new Error("Must be logged in")
 
       // 1. Get presigned URL
       const { upload_url, public_url } = await apiFetch<{
@@ -171,7 +174,7 @@ export default function ProfilePage() {
       }>("/uploads/presign-profile", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content_type: file.type }),
+        body: JSON.stringify({ content_type: file.type || "image/jpeg" })
       })
 
       // 2. PUT directly to R2
@@ -180,7 +183,7 @@ export default function ProfilePage() {
         headers: { "Content-Type": file.type },
         body: file,
       })
-      if (!r2Res.ok) throw new Error("فشل رفع الصورة")
+      if (!r2Res.ok) throw new Error("Image upload failed")
 
       // 3. Save the URL on the user record
       await apiFetch("/auth/me/profile-pic", {
@@ -189,10 +192,9 @@ export default function ProfilePage() {
         body: JSON.stringify({ profile_pic: public_url }),
       })
 
-      // 4. Update AuthContext so navbar avatar updates immediately
-      login(accessToken!, { ...user, profile_pic: public_url })
+      login(token, { ...user, profile_pic: public_url })
     } catch {
-      setPhotoError("حدث خطأ أثناء رفع الصورة")
+      setPhotoError("An error occurred while uploading the image")
     } finally {
       setPhotoUploading(false)
     }
