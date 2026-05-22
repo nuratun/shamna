@@ -6,12 +6,7 @@ import { X, Loader2, Plus } from "lucide-react"
 const MAX_PHOTOS = 5
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
-export default function StepPhotos({
-  images,
-  onChange,
-  onNext,
-  onBack
-}: {
+export default function StepPhotos({ images, onChange, onNext, onBack }: {
   images: File[]
   onChange: (files: File[]) => void
   onNext: (uploadedUrls: string[]) => void

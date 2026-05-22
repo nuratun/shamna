@@ -1,17 +1,6 @@
-const CATEGORIES = [
-  { slug: "real-estate", label: "عقارات", icon: "🏠" },
-  { slug: "cars", label: "سيارات", icon: "🚗" },
-  { slug: "electronics", label: "إلكترونيات", icon: "📱" },
-  { slug: "furniture", label: "أثاث ومنزل", icon: "🛋️" },
-  { slug: "clothing", label: "ملابس", icon: "👗" },
-  { slug: "jobs", label: "وظائف وخدمات", icon: "💼" }
-]
+import { CATEGORIES } from "@/lib/constants"
 
-export default function StepCategory({
-  value,
-  onChange,
-  onNext
-}: {
+export default function StepCategory({ value, onChange, onNext }: {
   value: string
   onChange: (v: string) => void
   onNext: () => void

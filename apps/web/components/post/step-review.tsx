@@ -8,13 +8,7 @@ type Props = {
   error: string | null
 }
 
-export default function StepReview({
-  form,
-  onBack,
-  onSubmit,
-  isSubmitting,
-  error,
-}: Props) {
+export default function StepReview({ form, onBack, onSubmit, isSubmitting, error }: Props) {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">مراجعة الإعلان</h2>

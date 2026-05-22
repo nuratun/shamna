@@ -4,6 +4,7 @@ import "@/app/globals.css"
 import Navbar from "@/components/navbar"
 import Footer from "@/components/footer"
 import { AuthProvider } from "@/contexts/auth-context"
+import { CurrencyProvider } from "@/contexts/currency-context"
 
 const arabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic"],
@@ -27,11 +28,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         className={`${arabic.variable} font-sans antialiased min-h-screen flex flex-col`}
       >
         <AuthProvider>
-          <Navbar />
-          <main className="flex-1">
-            {children}
-          </main>
-          <Footer />
+          <CurrencyProvider>
+            <Navbar />
+            <main className="flex-1">
+              {children}
+            </main>
+            <Footer />
+          </CurrencyProvider>
         </AuthProvider>
       </body>
     </html>

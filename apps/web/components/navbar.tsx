@@ -3,21 +3,23 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { 
-  Search, 
-  PlusCircle, 
-  User, 
-  Bell, 
-  Heart, 
-  ClipboardList 
+import {
+  Search,
+  PlusCircle,
+  User,
+  Bell,
+  Heart,
+  ClipboardList
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { useCurrency } from "@/contexts/currency-context"
 
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
 
   const { user, logout, isLoading } = useAuth()
+  const { displayCurrency, toggle: toggleCurrency, rateLoading } = useCurrency()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [query, setQuery] = useState("")
 
@@ -71,6 +73,42 @@ export default function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+
+          {/* Currency toggle — always visible, regardless of auth state */}
+          <button
+            onClick={toggleCurrency}
+            disabled={rateLoading}
+            title={displayCurrency === "SYP" ? "التبديل إلى الدولار" : "التبديل إلى الليرة السورية"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              height: 36,
+              padding: "0 12px",
+              borderRadius: 20,
+              border: "1px solid var(--color-border)",
+              background: rateLoading ? "var(--color-surface)" : "#fff",
+              color: "var(--color-text-primary)",
+              cursor: rateLoading ? "default" : "pointer",
+              fontFamily: "var(--font-arabic)",
+              fontSize: 12,
+              fontWeight: 600,
+              transition: "background 0.15s",
+              opacity: rateLoading ? 0.5 : 1,
+              flexShrink: 0,
+            }}
+          >
+            {/* Inactive currency (dimmed) */}
+            <span style={{ color: "var(--color-text-muted)", fontWeight: 400 }}>
+              {displayCurrency === "SYP" ? "$" : "ل.س"}
+            </span>
+            {/* Divider */}
+            <span style={{ color: "var(--color-border)", margin: "0 2px" }}>|</span>
+            {/* Active currency */}
+            <span style={{ color: "var(--color-brand)" }}>
+              {displayCurrency === "SYP" ? "ل.س" : "$"}
+            </span>
+          </button>
 
           {isLoading ? (
             <div style={{ width: 160, height: 36, borderRadius: 8, background: "var(--color-surface)" }} />

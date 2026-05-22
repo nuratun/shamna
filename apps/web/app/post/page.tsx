@@ -9,13 +9,7 @@ import StepCategory from "@/components/post/step-category"
 import StepDetails from "@/components/post/step-details"
 import StepPhotos from "@/components/post/step-photos"
 import StepReview from "@/components/post/step-review"
-
-const STEPS = [
-  "الفئة", 
-  "التفاصيل", 
-  "الصور", 
-  "المراجعة"
-]
+import { STEPS } from "@/lib/constants"
 
 export default function PostPage() {
   const router = useRouter()

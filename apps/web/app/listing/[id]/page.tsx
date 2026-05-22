@@ -11,8 +11,7 @@ import PhoneReveal from "@/components/ui/PhoneReveal"
 import ReportButton from "@/components/ui/ReportButton"
 import ListingCard from "@/components/listing-card"
 import SaveButton from "@/components/ui/SaveButton"
-
-
+import PriceDisplay from "@/components/ui/PriceDisplay"
 
 const conditionLabels: Record<string, string> = {
   new: "جديد",
@@ -78,9 +77,18 @@ export default async function ListingDetailPage({ params }: {
         >
           {listing.title}
         </h1>
-        <p className="text-2xl font-bold mb-3" style={{ color: "var(--color-brand)" }}>
-          {listing.price.toLocaleString("en-US")} {listing.currency}
-        </p>
+
+        {/*
+          PriceDisplay is a thin client component that calls useCurrency()
+          and renders the converted price. We can't call hooks directly in
+          this server component, so we delegate just the price line.
+        */}
+        <PriceDisplay
+          amount={listing.price}
+          currency={listing.currency}
+          className="text-2xl font-bold mb-3"
+        />
+
         <div className="flex items-center justify-between mt-3">
           <div className="flex gap-4 text-xs" style={{ color: "var(--color-text-muted)" }}>
             <span>📍 {listing.city}</span>

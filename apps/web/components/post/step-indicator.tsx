@@ -1,9 +1,4 @@
-const STEPS = [
-  "الفئة", 
-  "التفاصيل", 
-  "الصور", 
-  "المراجعة"
-]
+import { STEPS } from "@/lib/constants"
 
 export default function StepIndicator({ steps, current }: { steps: string[], current: number }) {
   return (

@@ -1,19 +1,10 @@
 import { PostFormData } from "@/types/post"
-
-const CITIES = [
-  "دمشق", 
-  "حلب", 
-  "حمص", 
-  "حماة", 
-  "اللاذقية", 
-  "طرطوس", 
-  "إدلب", 
-  "دير الزور"
-]
+import { CITIES } from "@/lib/constants"
 
 export type ListingDetails = {
   title: string
   price: string
+  currency: string
   condition: string
   city: string
   description: string
@@ -45,22 +36,17 @@ const inputStyle = {
   outline: "none"
 } as React.CSSProperties
 
-export default function StepDetails({
-  value,
-  onChange,
-  onNext,
-  onBack
-}: {
-  value: Pick<PostFormData, "title" | "price" | "condition" | "city" | "description">
+export default function StepDetails({ value, onChange, onNext, onBack }: {
+  value: Pick<PostFormData, "title" | "price" | "currency" | "condition" | "city" | "description">
   onChange: (patch: Partial<PostFormData>) => void
   onNext: () => void
   onBack: () => void
 }) {
-  const set = (key: keyof Pick<PostFormData, "title" | "price" | "condition" | "city" | "description">) =>
+  const set = (key: keyof Pick<PostFormData, "title" | "price" | "currency" | "condition" | "city" | "description">) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       onChange({ [key]: e.target.value })
 
-  const isValid = value.title && value.price && value.condition && value.city && value.description
+  const isValid = value.title && value.price && value.currency && value.condition && value.city && value.description
 
   return (
     <div style={{ fontFamily: "var(--font-arabic)" }}>
@@ -84,15 +70,58 @@ export default function StepDetails({
         />
       </Field>
 
-      <Field label="السعر (د.أ) *">
-        <input
-          style={{ ...inputStyle, direction: "ltr", textAlign: "right" }}
-          type="number"
-          value={value.price}
-          onChange={set("price")}
-          placeholder="0"
-          min={0}
-        />
+      {/* Price + Currency selector side by side */}
+      <Field label="السعر *">
+        <div style={{ display: "flex", gap: 8 }}>
+          {/* Currency toggle buttons */}
+          <div
+            style={{
+              display: "flex",
+              borderRadius: 8,
+              border: "1px solid var(--color-border)",
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            {(["SYP", "USD"] as const).map((cur) => (
+              <button
+                key={cur}
+                type="button"
+                onClick={() => onChange({ currency: cur })}
+                style={{
+                  padding: "10px 14px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: "var(--font-arabic)",
+                  border: "none",
+                  cursor: "pointer",
+                  transition: "background 0.15s, color 0.15s",
+                  background: value.currency === cur ? "var(--color-brand)" : "#fff",
+                  color: value.currency === cur ? "#fff" : "var(--color-text-muted)",
+                  // Divider between the two buttons
+                  borderRight: cur === "SYP" ? "1px solid var(--color-border)" : "none",
+                }}
+              >
+                {cur === "SYP" ? "ل.س" : "$"}
+              </button>
+            ))}
+          </div>
+
+          {/* Price number input */}
+          <input
+            style={{
+              ...inputStyle,
+              direction: "ltr",
+              textAlign: "right",
+              flex: 1,
+            }}
+            type="number"
+            value={value.price}
+            onChange={set("price")}
+            placeholder="0"
+            min={0}
+          />
+        </div>
       </Field>
 
       <div className="grid grid-cols-2 gap-3">

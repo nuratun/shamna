@@ -1,10 +1,15 @@
+"use client"
+
 import Link from "next/link"
 import { categoryLabels, categoryIcons, timeAgo } from "@/lib/utils"
 import { Listing } from "@/types/listing"
 import SaveButton from "@/components/ui/SaveButton"
+import { useCurrency } from "@/contexts/currency-context"
+import { formatPrice } from "@/lib/format-price"
 
 export default function ListingCard({ listing }: { listing: Listing }) {
   const meta = categoryIcons[listing.category] ?? { icon: "📦", color: "#F1EFE8" }
+  const { convert, displayCurrency } = useCurrency()
 
   return (
     <Link
@@ -58,7 +63,7 @@ export default function ListingCard({ listing }: { listing: Listing }) {
           className="text-sm font-semibold mt-1"
           style={{ color: "var(--color-brand)" }}
         >
-          {listing.price.toLocaleString("en-US")} {listing.currency}
+          {formatPrice(listing.price, listing.currency, convert, displayCurrency)}
         </p>
         <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
           {listing.city} · {timeAgo(listing.created_at)}
